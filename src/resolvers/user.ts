@@ -24,7 +24,7 @@ class UsernamePasswordInput {
 @ObjectType()
 class FieldError {
 	@Field(() => String, { nullable: true })
-	field?: string;
+	field?: "username" | "password";
 	@Field()
 	message: string;
 }
@@ -76,6 +76,7 @@ export class UserResolver {
 				username: options.username,
 				password: hashedPassword,
 			});
+
 			await em.persistAndFlush(user);
 
 			req.session.userId = user.id; //set cookie
@@ -88,12 +89,15 @@ export class UserResolver {
 			if (err.code === "23505" || err.detail.includes("already exists")) {
 				return {
 					errors: [
-						{ message: "user with this username already exists" },
+						{
+							field: "username",
+							message: "user with this username already exists",
+						},
 					],
 				};
 			}
 			return {
-				errors: [{ message: "unable to register" }],
+				errors: [{ field: "username", message: "unable to register" }],
 			};
 		}
 	}
@@ -106,9 +110,9 @@ export class UserResolver {
 		const requestedUser = await em.findOne(User, {
 			username: options.username,
 		});
-		if (!requestedUser) {
+		if (!requestedUser?.id) {
 			return {
-				errors: [{ message: "error logging in" }],
+				errors: [{ field: "username", message: "error logging in" }],
 			};
 		}
 		const passwordIsValid = await argon2.verify(
@@ -117,7 +121,7 @@ export class UserResolver {
 		);
 		if (!passwordIsValid) {
 			return {
-				errors: [{ message: "error logging in" }],
+				errors: [{ field: "username", message: "error logging in" }],
 			};
 		}
 
