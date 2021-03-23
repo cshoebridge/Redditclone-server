@@ -41,7 +41,7 @@ class UserResponse {
 @Resolver()
 export class UserResolver {
 	@Query(() => UserResponse)
-	async me(@Ctx() { req, em }: MyContext): Promise<UserResponse> {
+	async me(@Ctx() { em, req }: MyContext): Promise<UserResponse> {
 		if (!req.session.userId) {
 			return {
 				errors: [{ message: "no user logged in" }],
@@ -124,7 +124,7 @@ export class UserResolver {
 				errors: [{ field: "username", message: "error logging in" }],
 			};
 		}
-
+		
 		req.session.userId = requestedUser.id;
 
 		return {

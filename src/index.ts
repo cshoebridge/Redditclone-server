@@ -27,7 +27,7 @@ const main = async () => {
 	}))
 	app.use(
 		session({
-			name: "cookieid",
+			name: "qid",
 			store: new RedisStore({
 				client: redisClient,
 				disableTouch: true,
@@ -55,7 +55,7 @@ const main = async () => {
 	apolloServer.applyMiddleware({ app, cors: false });
 
 	app.listen(4040, () => {
-		console.log("server started on localhost:4000");
+		console.log("server started on localhost:4040");
 	});
 };
 
