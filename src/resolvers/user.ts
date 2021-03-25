@@ -11,6 +11,7 @@ import {
 	Resolver,
 } from "type-graphql";
 import argon2 from "argon2";
+import { COOKIE_NAME } from "../constants";
 
 @InputType()
 class UsernamePasswordInput {
@@ -36,6 +37,15 @@ class UserResponse {
 
 	@Field(() => User, { nullable: true })
 	user?: User;
+}
+
+@ObjectType()
+class LogoutResponse {
+	@Field(() => Boolean)
+	success: boolean;
+
+	@Field(() => String)
+	message: string;
 }
 
 @Resolver()
@@ -124,11 +134,29 @@ export class UserResolver {
 				errors: [{ field: "username", message: "error logging in" }],
 			};
 		}
-		
+
 		req.session.userId = requestedUser.id;
 
 		return {
 			user: requestedUser,
 		};
+	}
+
+	@Mutation(() => LogoutResponse)
+	logout(@Ctx() { req, res }: MyContext): Promise<LogoutResponse> {
+		return new Promise<LogoutResponse>((resolve) =>
+			req.session.destroy((err: any) => {
+				if (err) {
+					console.log(err);
+					resolve({ success: false, message: "unable to logout" });
+				} else {
+					res.clearCookie(COOKIE_NAME);
+					resolve({
+						success: true,
+						message: "successfully logged out",
+					});
+				}
+			})
+		);
 	}
 }

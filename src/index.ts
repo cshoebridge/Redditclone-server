@@ -1,6 +1,6 @@
 import { PostResolver } from "./resolvers/post";
 import "reflect-metadata";
-import { __prod__ } from "./constants";
+import { COOKIE_NAME, __prod__ } from "./constants";
 import { MikroORM } from "@mikro-orm/core";
 import microConfig from "./mikro-orm.config";
 import express from "express";
@@ -27,7 +27,7 @@ const main = async () => {
 	}))
 	app.use(
 		session({
-			name: "qid",
+			name: COOKIE_NAME,
 			store: new RedisStore({
 				client: redisClient,
 				disableTouch: true,
@@ -54,8 +54,8 @@ const main = async () => {
 
 	apolloServer.applyMiddleware({ app, cors: false });
 
-	app.listen(4040, () => {
-		console.log("server started on localhost:4040");
+	app.listen(5000, () => {
+		console.log("server started on localhost:5000");
 	});
 };
 
