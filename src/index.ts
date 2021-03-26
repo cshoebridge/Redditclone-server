@@ -11,45 +11,25 @@ import redis from "redis";
 import session from "express-session";
 import connectRedis from "connect-redis";
 import { MyContext } from "./types";
-import cors from 'cors';
+import cors from "cors";
+import nodemailer from "nodemailer";
 
 const main = async () => {
 	const orm = await MikroORM.init(microConfig);
 	await orm.getMigrator().up();
 
+	const mailer = await createMailerClient();
+
 	const app = express();
 
-	const RedisStore = connectRedis(session);
-	const redisClient = redis.createClient();
-	app.use(cors({
-		origin: "http://localhost:3000",
-		credentials: true,
-	}))
-	app.use(
-		session({
-			name: COOKIE_NAME,
-			store: new RedisStore({
-				client: redisClient,
-				disableTouch: true,
-			}),
-			cookie: {
-				maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // a decade
-				httpOnly: true,
-				sameSite: "lax",
-				secure: __prod__ // cookie only works in https
-			},
-			secret: "fywsofgfoysydhljafwroiqrgladsqwerhfkjamn",
-			saveUninitialized: true,
-			resave: false,
-		})
-	);
+	initialiseSessions(app);
 
 	const apolloServer = new ApolloServer({
 		schema: await buildSchema({
 			resolvers: [PostResolver, UserResolver],
 			validate: false,
 		}),
-		context: ({ req, res }): MyContext => ({ em: orm.em, req, res }),
+		context: ({ req, res }): MyContext => ({ em: orm.em, req, res, mailer }),
 	});
 
 	apolloServer.applyMiddleware({ app, cors: false });
@@ -60,3 +40,45 @@ const main = async () => {
 };
 
 main().catch((err) => console.log(err));
+async function createMailerClient() {
+	const testAccount = await nodemailer.createTestAccount();
+	const transporter = nodemailer.createTransport({
+		host: "smtp.ethereal.email",
+		port: 587,
+		secure: false,
+		auth: {
+			user: testAccount.user,
+			pass: testAccount.pass,
+		},
+	});
+	return transporter;
+}
+
+function initialiseSessions(app: express.Express) {
+	const RedisStore = connectRedis(session);
+	const redisClient = redis.createClient();
+	app.use(
+		cors({
+			origin: "http://localhost:3000",
+			credentials: true,
+		})
+	);
+	app.use(
+		session({
+			name: COOKIE_NAME,
+			store: new RedisStore({
+				client: redisClient,
+				disableTouch: true,
+			}),
+			cookie: {
+				maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
+				httpOnly: true,
+				sameSite: "lax",
+				secure: __prod__, // cookie only works in https
+			},
+			secret: "fywsofgfoysydhljafwroiqrgladsqwerhfkjamn",
+			saveUninitialized: true,
+			resave: false,
+		})
+	);
+}

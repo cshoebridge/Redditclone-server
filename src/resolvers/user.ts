@@ -12,6 +12,7 @@ import {
 } from "type-graphql";
 import argon2 from "argon2";
 import { COOKIE_NAME } from "../constants";
+import nodemailer from "nodemailer";
 
 @InputType()
 class UsernamePasswordInput {
@@ -22,10 +23,16 @@ class UsernamePasswordInput {
 	password!: string;
 }
 
+@InputType()
+class RegisterInput extends UsernamePasswordInput {
+	@Field()
+	email!: string;
+}
+
 @ObjectType()
 class FieldError {
 	@Field(() => String, { nullable: true })
-	field?: "username" | "password";
+	field?: "username" | "password" | "email";
 	@Field()
 	message: string;
 }
@@ -40,7 +47,7 @@ class UserResponse {
 }
 
 @ObjectType()
-class LogoutResponse {
+class BoolWithMessageResponse {
 	@Field(() => Boolean)
 	success: boolean;
 
@@ -66,9 +73,14 @@ export class UserResolver {
 
 	@Mutation(() => UserResponse)
 	async register(
-		@Arg("options") options: UsernamePasswordInput,
+		@Arg("options") options: RegisterInput,
 		@Ctx() { em, req }: MyContext
 	): Promise<UserResponse> {
+		if (!options.email) {
+			return {
+				errors: [{ field: "email", message: "invalid email" }],
+			};
+		}
 		if (options.username.length <= 2) {
 			return {
 				errors: [{ field: "username", message: "username too short" }],
@@ -84,6 +96,7 @@ export class UserResolver {
 			const hashedPassword = await argon2.hash(options.password);
 			const user = em.create(User, {
 				username: options.username,
+				email: options.email,
 				password: hashedPassword,
 			});
 
@@ -101,7 +114,8 @@ export class UserResolver {
 					errors: [
 						{
 							field: "username",
-							message: "user with this username already exists",
+							message:
+								"user with this username or email already exists",
 						},
 					],
 				};
@@ -142,9 +156,9 @@ export class UserResolver {
 		};
 	}
 
-	@Mutation(() => LogoutResponse)
-	logout(@Ctx() { req, res }: MyContext): Promise<LogoutResponse> {
-		return new Promise<LogoutResponse>((resolve) =>
+	@Mutation(() => BoolWithMessageResponse)
+	logout(@Ctx() { req, res }: MyContext): Promise<BoolWithMessageResponse> {
+		return new Promise<BoolWithMessageResponse>((resolve) =>
 			req.session.destroy((err: any) => {
 				if (err) {
 					console.log(err);
@@ -158,5 +172,49 @@ export class UserResolver {
 				}
 			})
 		);
+	}
+
+	@Mutation(() => BoolWithMessageResponse)
+	async forgotPassword(
+		@Arg("email") email: string,
+		@Ctx() { mailer, em }: MyContext
+	): Promise<BoolWithMessageResponse> {
+		const user = await em.findOne(User, { email: email });
+		if (!user) {
+			return {
+				success: true,
+				message:
+					"if a user with this email exists, a password reset email has been sent to their inbox",
+			};
+		}
+
+		let mailInfo: any;
+		try {
+			mailInfo = await mailer.sendMail({
+				from:
+					'"RedditClone" Team <redditclone.forgotpass@redditclone.com>',
+				to: user.email,
+				subject: "Password Reset",
+				html:
+					"<a href='google.com'>click here to reset your password</a>",
+			});
+		} catch {
+			return {
+				success: false,
+				message:
+					"error sending password reset email, try again in a few minutes",
+			};
+		}
+
+		console.log(
+			"Message Preview: ",
+			nodemailer.getTestMessageUrl(mailInfo)
+		);
+
+		return {
+			success: true,
+			message:
+				"if a user with this email exists, a password reset email has been sent to their inbox",
+		};
 	}
 }
