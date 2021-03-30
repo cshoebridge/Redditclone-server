@@ -13,6 +13,7 @@ import {
 import argon2 from "argon2";
 import { COOKIE_NAME } from "../constants";
 import nodemailer from "nodemailer";
+import { validateRegister } from "../utils/validateRegister";
 
 @InputType()
 class UsernamePasswordInput {
@@ -24,13 +25,13 @@ class UsernamePasswordInput {
 }
 
 @InputType()
-class RegisterInput extends UsernamePasswordInput {
+export class RegisterInput extends UsernamePasswordInput {
 	@Field()
 	email!: string;
 }
 
 @ObjectType()
-class FieldError {
+export class FieldError {
 	@Field(() => String, { nullable: true })
 	field?: "username" | "password" | "email";
 	@Field()
@@ -76,21 +77,12 @@ export class UserResolver {
 		@Arg("options") options: RegisterInput,
 		@Ctx() { em, req }: MyContext
 	): Promise<UserResponse> {
-		if (!options.email) {
+		const invalidFields = validateRegister(options);
+		if (invalidFields.length != 0) {
 			return {
-				errors: [{ field: "email", message: "invalid email" }],
-			};
-		}
-		if (options.username.length <= 2) {
-			return {
-				errors: [{ field: "username", message: "username too short" }],
-			};
-		}
-		if (options.password.length <= 3) {
-			return {
-				errors: [{ field: "password", message: "password too weak" }],
-			};
-		}
+				errors: invalidFields
+			}
+		} 
 
 		try {
 			const hashedPassword = await argon2.hash(options.password);
