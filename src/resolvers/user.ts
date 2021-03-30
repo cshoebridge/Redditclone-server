@@ -123,7 +123,9 @@ export class UserResolver {
 		@Arg("options") options: UsernamePasswordInput,
 		@Ctx() { em, req }: MyContext
 	): Promise<UserResponse> {
-		const requestedUser = await em.findOne(User, {
+		const requestedUser = await em.findOne(User, options.username.includes("@") ? {
+			email: options.username
+		} :{
 			username: options.username,
 		});
 		if (!requestedUser?.id) {
