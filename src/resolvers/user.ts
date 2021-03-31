@@ -209,7 +209,7 @@ export class UserResolver {
 					'"RedditClone" Team <redditclone.forgotpass@redditclone.com>',
 				to: user.email,
 				subject: "Password Reset",
-				html: `<a href='http://localhost:3000/change-password/${token}'>click here to reset your password</a>`,
+				html: `<a href='http://localhost:3000/change_password/${token}'>click here to reset your password</a>`,
 			});
 		} catch {
 			return {
@@ -254,6 +254,8 @@ export class UserResolver {
 				message: "unable to change password",
 			};
 		}
+
+		redisClient.del(FORGOT_PASSWORD_PREFIX + token);
 
 		const user = await em.findOne(User, { id: userId });
 		if (!user) {
