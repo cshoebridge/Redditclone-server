@@ -8,6 +8,9 @@ export const validateRegister = (options: RegisterInput): FieldError[] => {
     if (options.username.length <= 2) {
         errors.push({ field: "username", message: "username too short" })
     }
+    if (options.username.includes("@")) {
+        errors.push({field: "username", message: "cannot include '@'"})
+    }
     if (options.password.length <= 3) {
         errors.push({ field: "password", message: "password too weak" })
     }

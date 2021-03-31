@@ -11,9 +11,10 @@ import {
 	Resolver,
 } from "type-graphql";
 import argon2 from "argon2";
-import { COOKIE_NAME } from "../constants";
+import { COOKIE_NAME, FORGOT_PASSWORD_PREFIX } from "../constants";
 import nodemailer from "nodemailer";
 import { validateRegister } from "../utils/validateRegister";
+import { v4 } from "uuid";
 
 @InputType()
 class UsernamePasswordInput {
@@ -80,9 +81,9 @@ export class UserResolver {
 		const invalidFields = validateRegister(options);
 		if (invalidFields.length != 0) {
 			return {
-				errors: invalidFields
-			}
-		} 
+				errors: invalidFields,
+			};
+		}
 
 		try {
 			const hashedPassword = await argon2.hash(options.password);
@@ -123,11 +124,16 @@ export class UserResolver {
 		@Arg("options") options: UsernamePasswordInput,
 		@Ctx() { em, req }: MyContext
 	): Promise<UserResponse> {
-		const requestedUser = await em.findOne(User, options.username.includes("@") ? {
-			email: options.username
-		} :{
-			username: options.username,
-		});
+		const requestedUser = await em.findOne(
+			User,
+			options.username.includes("@")
+				? {
+						email: options.username,
+				  }
+				: {
+						username: options.username,
+				  }
+		);
 		if (!requestedUser?.id) {
 			return {
 				errors: [{ field: "username", message: "error logging in" }],
@@ -171,7 +177,7 @@ export class UserResolver {
 	@Mutation(() => BoolWithMessageResponse)
 	async forgotPassword(
 		@Arg("email") email: string,
-		@Ctx() { mailer, em }: MyContext
+		@Ctx() { mailer, em, redisClient }: MyContext
 	): Promise<BoolWithMessageResponse> {
 		const user = await em.findOne(User, { email: email });
 		if (!user) {
@@ -182,6 +188,14 @@ export class UserResolver {
 			};
 		}
 
+		const token = v4();
+		await redisClient.set(
+			FORGOT_PASSWORD_PREFIX + token,
+			user.id,
+			"ex",
+			1000 * 60 * 60
+		); // expires after 1 hour
+
 		let mailInfo: any;
 		try {
 			mailInfo = await mailer.sendMail({
@@ -189,8 +203,7 @@ export class UserResolver {
 					'"RedditClone" Team <redditclone.forgotpass@redditclone.com>',
 				to: user.email,
 				subject: "Password Reset",
-				html:
-					"<a href='google.com'>click here to reset your password</a>",
+				html: `<a href='http://localhost:3000/change-password/${token}'>click here to reset your password</a>`,
 			});
 		} catch {
 			return {
@@ -210,5 +223,29 @@ export class UserResolver {
 			message:
 				"if a user with this email exists, a password reset email has been sent to their inbox",
 		};
+	}
+
+	@Mutation(() => BoolWithMessageResponse)
+	async changePassword(
+		@Arg("token") token: string,
+		@Arg("newPassword") newPassword: string,
+		@Ctx() { em, redisClient }: MyContext,
+	): Promise<BoolWithMessageResponse> {
+		const userId = Number(await redisClient.get(FORGOT_PASSWORD_PREFIX + token));
+		const user = await em.findOne(User, { id: userId });
+		if (!user) {
+			return {
+				success: false,
+				message: "unable to change password",
+			}
+		}
+		
+		user.password = await argon2.hash(newPassword);
+		em.flush()
+		
+		return {
+			success: true,
+			message: "password changed",
+		}
 	}
 }

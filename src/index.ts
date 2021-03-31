@@ -7,7 +7,7 @@ import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
 import { UserResolver } from "./resolvers/user";
-import redis from "redis";
+import Redis from "ioredis";
 import session from "express-session";
 import connectRedis from "connect-redis";
 import { MyContext } from "./types";
@@ -22,41 +22,8 @@ const main = async () => {
 
 	const app = express();
 
-	initialiseSessions(app);
-
-	const apolloServer = new ApolloServer({
-		schema: await buildSchema({
-			resolvers: [PostResolver, UserResolver],
-			validate: false,
-		}),
-		context: ({ req, res }): MyContext => ({ em: orm.em, req, res, mailer }),
-	});
-
-	apolloServer.applyMiddleware({ app, cors: false });
-
-	app.listen(5000, () => {
-		console.log("server started on localhost:5000");
-	});
-};
-
-main().catch((err) => console.log(err));
-async function createMailerClient() {
-	const testAccount = await nodemailer.createTestAccount();
-	const transporter = nodemailer.createTransport({
-		host: "smtp.ethereal.email",
-		port: 587,
-		secure: false,
-		auth: {
-			user: testAccount.user,
-			pass: testAccount.pass,
-		},
-	});
-	return transporter;
-}
-
-function initialiseSessions(app: express.Express) {
 	const RedisStore = connectRedis(session);
-	const redisClient = redis.createClient();
+	const redisClient = new Redis();
 	app.use(
 		cors({
 			origin: "http://localhost:3000",
@@ -81,4 +48,33 @@ function initialiseSessions(app: express.Express) {
 			resave: false,
 		})
 	);
+
+	const apolloServer = new ApolloServer({
+		schema: await buildSchema({
+			resolvers: [PostResolver, UserResolver],
+			validate: false,
+		}),
+		context: ({ req, res }): MyContext => ({ em: orm.em, req, res, mailer, redisClient }),
+	});
+
+	apolloServer.applyMiddleware({ app, cors: false });
+
+	app.listen(5000, () => {
+		console.log("server started on localhost:5000");
+	});
+};
+
+main().catch((err) => console.log(err));
+async function createMailerClient() {
+	const testAccount = await nodemailer.createTestAccount();
+	const transporter = nodemailer.createTransport({
+		host: "smtp.ethereal.email",
+		port: 587,
+		secure: false,
+		auth: {
+			user: testAccount.user,
+			pass: testAccount.pass,
+		},
+	});
+	return transporter;
 }
