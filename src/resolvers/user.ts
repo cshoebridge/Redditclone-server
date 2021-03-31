@@ -57,6 +57,12 @@ class BoolWithMessageResponse {
 	message: string;
 }
 
+@ObjectType()
+class ChangePasswordResponse extends BoolWithMessageResponse {
+	@Field(() => String, { nullable: true })
+	field?: string;
+}
+
 @Resolver()
 export class UserResolver {
 	@Query(() => UserResponse)
@@ -225,27 +231,44 @@ export class UserResolver {
 		};
 	}
 
-	@Mutation(() => BoolWithMessageResponse)
+	@Mutation(() => ChangePasswordResponse)
 	async changePassword(
 		@Arg("token") token: string,
 		@Arg("newPassword") newPassword: string,
-		@Ctx() { em, redisClient }: MyContext,
-	): Promise<BoolWithMessageResponse> {
-		const userId = Number(await redisClient.get(FORGOT_PASSWORD_PREFIX + token));
+		@Ctx() { em, redisClient }: MyContext
+	): Promise<ChangePasswordResponse> {
+		if (newPassword.length < 8) {
+			return {
+				success: false,
+				field: "password",
+				message: "password too weak",
+			};
+		}
+
+		const userId = Number(
+			await redisClient.get(FORGOT_PASSWORD_PREFIX + token)
+		);
+		if (!userId /*token has expired*/) {
+			return {
+				success: false,
+				message: "unable to change password",
+			};
+		}
+
 		const user = await em.findOne(User, { id: userId });
 		if (!user) {
 			return {
 				success: false,
 				message: "unable to change password",
-			}
+			};
 		}
-		
+
 		user.password = await argon2.hash(newPassword);
-		em.flush()
-		
+		em.flush();
+
 		return {
 			success: true,
 			message: "password changed",
-		}
+		};
 	}
 }
