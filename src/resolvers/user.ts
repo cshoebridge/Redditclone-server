@@ -66,14 +66,14 @@ class ChangePasswordResponse extends BoolWithMessageResponse {
 @Resolver()
 export class UserResolver {
 	@Query(() => UserResponse)
-	async me(@Ctx() { em, req }: MyContext): Promise<UserResponse> {
+	async me(@Ctx() { req }: MyContext): Promise<UserResponse> {
 		if (!req.session.userId) {
 			return {
 				errors: [{ message: "no user logged in" }],
 			};
 		}
 
-		const user = await em.findOne(User, req.session.userId);
+		const user = await User.findOne(req.session.userId);
 		return user
 			? { user: user }
 			: { errors: [{ message: "error fetching user" }] };
@@ -82,7 +82,7 @@ export class UserResolver {
 	@Mutation(() => UserResponse)
 	async register(
 		@Arg("options") options: RegisterInput,
-		@Ctx() { em, req }: MyContext
+		@Ctx() { req }: MyContext
 	): Promise<UserResponse> {
 		const invalidFields = validateRegister(options);
 		if (invalidFields.length != 0) {
@@ -93,19 +93,19 @@ export class UserResolver {
 
 		try {
 			const hashedPassword = await argon2.hash(options.password);
-			const user = em.create(User, {
+
+			const user = await User.create({
 				username: options.username,
 				email: options.email,
 				password: hashedPassword,
-			});
-
-			await em.persistAndFlush(user);
+			}).save();
 
 			req.session.userId = user.id; //set cookie
 
 			return {
-				user: user,
+				user,
 			};
+
 		} catch (err) {
 			// user already registered
 			if (err.code === "23505" || err.detail.includes("already exists")) {
@@ -128,16 +128,19 @@ export class UserResolver {
 	@Mutation(() => UserResponse)
 	async login(
 		@Arg("options") options: UsernamePasswordInput,
-		@Ctx() { em, req }: MyContext
+		@Ctx() { req }: MyContext
 	): Promise<UserResponse> {
-		const requestedUser = await em.findOne(
-			User,
+		const requestedUser = await User.findOne(
 			options.username.includes("@")
 				? {
-						email: options.username,
+						where: {
+							email: options.username,
+						},
 				  }
 				: {
-						username: options.username,
+						where: {
+							username: options.username,
+						},
 				  }
 		);
 		if (!requestedUser?.id) {
@@ -183,9 +186,9 @@ export class UserResolver {
 	@Mutation(() => BoolWithMessageResponse)
 	async forgotPassword(
 		@Arg("email") email: string,
-		@Ctx() { mailer, em, redisClient }: MyContext
+		@Ctx() { mailer, redisClient }: MyContext
 	): Promise<BoolWithMessageResponse> {
-		const user = await em.findOne(User, { email: email });
+		const user = await User.findOne({ where: { email: email } });
 		if (!user) {
 			return {
 				success: true,
@@ -235,42 +238,46 @@ export class UserResolver {
 	async changePassword(
 		@Arg("token") token: string,
 		@Arg("newPassword") newPassword: string,
-		@Ctx() { em, redisClient }: MyContext
+		@Ctx() { redisClient }: MyContext
 	): Promise<ChangePasswordResponse> {
 		if (newPassword.length < 8) {
 			return {
 				success: false,
 				field: "password",
-				message: "password too weak",
+				message: "Password too weak",
 			};
 		}
 
 		const userId = Number(
 			await redisClient.get(FORGOT_PASSWORD_PREFIX + token)
 		);
+
 		if (!userId /*token has expired*/) {
 			return {
 				success: false,
-				message: "unable to change password",
+				message:
+					"This password reset token has expired!\n(Or maybe it just didn't exist in the first place)",
 			};
 		}
 
 		redisClient.del(FORGOT_PASSWORD_PREFIX + token);
 
-		const user = await em.findOne(User, { id: userId });
+		const user = await User.findOne({ id: userId });
 		if (!user) {
 			return {
 				success: false,
-				message: "user no longer exists",
+				message: "This user no longer exists!",
 			};
 		}
 
-		user.password = await argon2.hash(newPassword);
-		em.flush();
+		await User.update(
+			{ id: userId },
+			{ password: await argon2.hash(newPassword) }
+		);
 
 		return {
 			success: true,
-			message: "password changed",
+			message: "Password changed",
 		};
 	}
 }

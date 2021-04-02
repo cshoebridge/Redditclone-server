@@ -1,22 +1,30 @@
-import { PostResolver } from "./resolvers/post";
-import "reflect-metadata";
-import { COOKIE_NAME, __prod__ } from "./constants";
-import { MikroORM } from "@mikro-orm/core";
-import microConfig from "./mikro-orm.config";
-import express from "express";
 import { ApolloServer } from "apollo-server-express";
-import { buildSchema } from "type-graphql";
-import { UserResolver } from "./resolvers/user";
-import Redis from "ioredis";
-import session from "express-session";
 import connectRedis from "connect-redis";
-import { MyContext } from "./types";
 import cors from "cors";
+import express from "express";
+import session from "express-session";
+import Redis from "ioredis";
 import nodemailer from "nodemailer";
+import "reflect-metadata";
+import { buildSchema } from "type-graphql";
+import { createConnection } from "typeorm";
+import { COOKIE_NAME, __prod__ } from "./constants";
+import { Post } from "./entities/Post";
+import { User } from "./entities/User";
+import { PostResolver } from "./resolvers/post";
+import { UserResolver } from "./resolvers/user";
+import { MyContext } from "./types";
 
 const main = async () => {
-	const orm = await MikroORM.init(microConfig);
-	await orm.getMigrator().up();
+	await createConnection({
+		type: 'postgres',
+		database: 'redditclone',
+		username: 'postgres',
+		password: 'DivineHD1',
+		logging: true,
+		synchronize: !__prod__,
+		entities: [Post, User]
+	})
 
 	const mailer = await createMailerClient();
 
@@ -54,7 +62,7 @@ const main = async () => {
 			resolvers: [PostResolver, UserResolver],
 			validate: false,
 		}),
-		context: ({ req, res }): MyContext => ({ em: orm.em, req, res, mailer, redisClient }),
+		context: ({ req, res }): MyContext => ({ req, res, mailer, redisClient }),
 	});
 
 	apolloServer.applyMiddleware({ app, cors: false });
