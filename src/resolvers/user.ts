@@ -69,7 +69,7 @@ export class UserResolver {
 	async me(@Ctx() { req }: MyContext): Promise<UserResponse> {
 		if (!req.session.userId) {
 			return {
-				errors: [{ message: "no user logged in" }],
+				errors: [{ message: "no userID found in session" }],
 			};
 		}
 
@@ -157,8 +157,7 @@ export class UserResolver {
 				errors: [{ field: "username", message: "error logging in" }],
 			};
 		}
-
-		req.session.userId = requestedUser.id;
+		req.session.userId = requestedUser.id; // set cookie
 
 		return {
 			user: requestedUser,
