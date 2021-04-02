@@ -261,7 +261,7 @@ export class UserResolver {
 		if (!user) {
 			return {
 				success: false,
-				message: "unable to change password",
+				message: "user no longer exists",
 			};
 		}
 
