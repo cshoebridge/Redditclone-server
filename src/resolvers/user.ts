@@ -3,10 +3,7 @@ import { MyContext } from "src/types";
 import {
 	Arg,
 	Ctx,
-	Field,
-	InputType,
 	Mutation,
-	ObjectType,
 	Query,
 	Resolver,
 } from "type-graphql";
@@ -15,53 +12,8 @@ import { COOKIE_NAME, FORGOT_PASSWORD_PREFIX } from "../constants";
 import nodemailer from "nodemailer";
 import { validateRegister } from "../utils/validateRegister";
 import { v4 } from "uuid";
-
-@InputType()
-class UsernamePasswordInput {
-	@Field()
-	username!: string;
-
-	@Field()
-	password!: string;
-}
-
-@InputType()
-export class RegisterInput extends UsernamePasswordInput {
-	@Field()
-	email!: string;
-}
-
-@ObjectType()
-export class FieldError {
-	@Field(() => String, { nullable: true })
-	field?: "username" | "password" | "email";
-	@Field()
-	message: string;
-}
-
-@ObjectType()
-class UserResponse {
-	@Field(() => [FieldError], { nullable: true })
-	errors?: FieldError[];
-
-	@Field(() => User, { nullable: true })
-	user?: User;
-}
-
-@ObjectType()
-class BoolWithMessageResponse {
-	@Field(() => Boolean)
-	success: boolean;
-
-	@Field(() => String)
-	message: string;
-}
-
-@ObjectType()
-class ChangePasswordResponse extends BoolWithMessageResponse {
-	@Field(() => String, { nullable: true })
-	field?: string;
-}
+import { RegisterInput, UsernamePasswordInput } from "../typeorm-types/input-types";
+import { UserResponse, BoolWithMessageResponse, ChangePasswordResponse } from "../typeorm-types/object-types";
 
 @Resolver()
 export class UserResolver {

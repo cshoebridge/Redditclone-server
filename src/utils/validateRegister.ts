@@ -1,7 +1,8 @@
-import { FieldError, RegisterInput } from "src/resolvers/user";
+import { RegisterInput } from "src/typeorm-types/input-types";
+import { UserFieldError } from "src/typeorm-types/object-types";
 
-export const validateRegister = (options: RegisterInput): FieldError[] => {
-    const errors: FieldError[] = [];
+export const validateRegister = (options: RegisterInput): UserFieldError[] => {
+    const errors: UserFieldError[] = [];
     if (!options.email || !options.email.includes("@")) {
         errors.push({ field: "email", message: "invalid email" })
     }

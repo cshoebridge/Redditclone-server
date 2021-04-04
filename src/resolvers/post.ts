@@ -2,8 +2,6 @@ import { Post } from "./../entities/Post";
 import {
 	Arg,
 	Ctx,
-	Field,
-	InputType,
 	Mutation,
 	Query,
 	Resolver,
@@ -11,15 +9,10 @@ import {
 } from "type-graphql";
 import { MyContext } from "src/types";
 import { isAuth } from "../middleware/isAuth";
+import { PostInput } from "../typeorm-types/input-types";
+import { PostResponse } from "../typeorm-types/object-types";
 
-@InputType()
-class PostInput {
-	@Field()
-	title: string;
 
-	@Field()
-	text: string;
-}
 
 @Resolver()
 export class PostResolver {
@@ -36,10 +29,39 @@ export class PostResolver {
 	@Mutation(() => Post)
 	@UseMiddleware(isAuth)
 	async createPost(
-		@Arg("input") input: PostInput,
+		@Arg("input") { title, text }: PostInput,
 		@Ctx() { req }: MyContext
-	): Promise<Post> {
-		return Post.create({ ...input, authorId: req.session.userId }).save();
+	): Promise<PostResponse> {
+		if (title.length <= 3) {
+			return { errors: [{ field: "title", message: "Title too short" }] };
+		}
+		if (text.length <= 20) {
+			return {
+				errors: [
+					{
+						field: "text",
+						message: "Post must be at minimum 20 characters long",
+					},
+				],
+			};
+		}
+		if (text.length >= 200) {
+			return {
+				errors: [
+					{
+						field: "text",
+						message: "Post must be at most 200 characters long",
+					},
+				],
+			};
+		}
+		return {
+			post: await Post.create({
+				title,
+				text,
+				authorId: req.session.userId,
+			}).save(),
+		};
 	}
 
 	@Mutation(() => Post, { nullable: true })
