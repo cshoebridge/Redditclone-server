@@ -11,7 +11,7 @@ import { MyContext } from "src/types";
 import { isAuth } from "../middleware/isAuth";
 import { PostInput } from "../typeorm-types/input-types";
 import { PostResponse } from "../typeorm-types/object-types";
-
+import { validatePost } from "../utils/validatePost";
 
 
 @Resolver()
@@ -26,35 +26,19 @@ export class PostResolver {
 		return Post.findOne(id);
 	}
 
-	@Mutation(() => Post)
+	@Mutation(() => PostResponse)
 	@UseMiddleware(isAuth)
 	async createPost(
 		@Arg("input") { title, text }: PostInput,
 		@Ctx() { req }: MyContext
 	): Promise<PostResponse> {
-		if (title.length <= 3) {
-			return { errors: [{ field: "title", message: "Title too short" }] };
-		}
-		if (text.length <= 20) {
+		const invalidFields = validatePost({title, text});
+		if (invalidFields.length != 0) {
 			return {
-				errors: [
-					{
-						field: "text",
-						message: "Post must be at minimum 20 characters long",
-					},
-				],
-			};
+				errors: invalidFields
+			}
 		}
-		if (text.length >= 200) {
-			return {
-				errors: [
-					{
-						field: "text",
-						message: "Post must be at most 200 characters long",
-					},
-				],
-			};
-		}
+
 		return {
 			post: await Post.create({
 				title,

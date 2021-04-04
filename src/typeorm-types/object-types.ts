@@ -3,16 +3,20 @@ import { User } from "../entities/User";
 import { ObjectType, Field } from "type-graphql";
 
 @ObjectType()
-export class PostFieldError {
-	@Field(() => String, { nullable: true })
-	field?: "title" | "text";
+export class FieldError {
 	@Field()
 	message: string;
+}
+@ObjectType()
+export class PostFieldError extends FieldError {
+	@Field(() => String)
+	field: "title" | "text";
+
 }
 
 @ObjectType()
 export class PostResponse {
-	@Field(() => PostFieldError, { nullable: true })
+	@Field(() => [PostFieldError], { nullable: true })
 	errors?: PostFieldError[];
 
 	@Field(() => Post, { nullable: true })
@@ -20,11 +24,10 @@ export class PostResponse {
 }
 
 @ObjectType()
-export class UserFieldError {
+export class UserFieldError extends FieldError {
 	@Field(() => String, { nullable: true })
 	field?: "username" | "password" | "email";
-	@Field()
-	message: string;
+
 }
 
 @ObjectType()
