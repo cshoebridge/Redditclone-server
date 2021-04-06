@@ -34,5 +34,5 @@
   "include": [
     "./src/**/*.tsx",
     "./src/**/*.ts"
-  ]
+, "migrations/1617713932089-FakePosts.ts", "migrations/1617713932089-FakePosts.ts"  ]
 }

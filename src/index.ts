@@ -14,17 +14,20 @@ import { User } from "./entities/User";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import { MyContext } from "./types";
+import path from "path"
 
 const main = async () => {
-	await createConnection({
+	const conn = await createConnection({
 		type: 'postgres',
 		database: 'redditclone',
 		username: 'postgres',
 		password: 'DivineHD1',
 		logging: true,
 		synchronize: !__prod__,
+		migrations: [path.join(__dirname, "./migrations/*")],
 		entities: [Post, User]
 	})
+	conn.runMigrations();
 
 	const mailer = await createMailerClient();
 
