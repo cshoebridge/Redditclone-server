@@ -2,10 +2,12 @@ import { Post } from "./../entities/Post";
 import {
 	Arg,
 	Ctx,
+	FieldResolver,
 	Int,
 	Mutation,
 	Query,
 	Resolver,
+	Root,
 	UseMiddleware,
 } from "type-graphql";
 import { MyContext } from "src/types";
@@ -15,8 +17,13 @@ import { PostResponse } from "../typeorm-types/object-types";
 import { validatePost } from "../utils/validatePost";
 import { getConnection } from "typeorm";
 
-@Resolver()
+@Resolver(Post)
 export class PostResolver {
+	@FieldResolver(() => String)
+	textSnippet(@Root() root: Post) {
+		return root.text.slice(0, Math.min(100, root.text.length)) + "...";
+	}
+
 	@Query(() => [Post])
 	posts(
 		@Arg("limit", () => Int) limit: number,
@@ -27,10 +34,11 @@ export class PostResolver {
 			.getRepository(Post)
 			.createQueryBuilder("post")
 			.orderBy('"createdAt"', "DESC")
-			.take(realLimit)
+			.take(realLimit);
 		if (cursor) {
-			queryBuilder.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) })
-
+			queryBuilder.where('"createdAt" < :cursor', {
+				cursor: new Date(parseInt(cursor)),
+			});
 		}
 
 		return queryBuilder.getMany();
