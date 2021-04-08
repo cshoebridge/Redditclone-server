@@ -13,7 +13,7 @@ import {
 import { MyContext } from "src/types";
 import { isAuth } from "../middleware/isAuth";
 import { PostInput } from "../typeorm-types/input-types";
-import { PostResponse } from "../typeorm-types/object-types";
+import { PostPagination, PostResponse } from "../typeorm-types/object-types";
 import { validatePost } from "../utils/validatePost";
 import { getConnection } from "typeorm";
 
@@ -24,24 +24,31 @@ export class PostResolver {
 		return root.text.slice(0, Math.min(100, root.text.length)) + "...";
 	}
 
-	@Query(() => [Post])
-	posts(
+	@Query(() => PostPagination)
+	async posts(
 		@Arg("limit", () => Int) limit: number,
 		@Arg("cursor", () => String, { nullable: true }) cursor: string
-	): Promise<Post[]> {
+	): Promise<PostPagination> {
 		const realLimit = Math.min(limit, 50);
+		const realLimitPlusOne = realLimit + 1;
 		const queryBuilder = getConnection()
 			.getRepository(Post)
 			.createQueryBuilder("post")
 			.orderBy('"createdAt"', "DESC")
-			.take(realLimit);
+			.take(realLimitPlusOne);
 		if (cursor) {
 			queryBuilder.where('"createdAt" < :cursor', {
 				cursor: new Date(parseInt(cursor)),
 			});
 		}
 
-		return queryBuilder.getMany();
+		const fetchedPosts = await queryBuilder.getMany();
+		const allFetched = (fetchedPosts.length < realLimitPlusOne);
+		
+		return {
+			posts: fetchedPosts.splice(0, realLimit),
+			allFetched,
+		};
 	}
 
 	@Query(() => Post, { nullable: true })

@@ -24,6 +24,15 @@ export class PostResponse {
 }
 
 @ObjectType()
+export class PostPagination {
+	@Field(() => [Post])
+	posts: Post[]
+
+	@Field(() => Boolean)
+	allFetched: boolean 
+}
+
+@ObjectType()
 export class UserFieldError extends FieldError {
 	@Field(() => String, { nullable: true })
 	field?: "username" | "password" | "email";
