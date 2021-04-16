@@ -3,9 +3,11 @@ import { MyContext } from "src/types";
 import {
 	Arg,
 	Ctx,
+	FieldResolver,
 	Mutation,
 	Query,
 	Resolver,
+	Root,
 } from "type-graphql";
 import argon2 from "argon2";
 import { COOKIE_NAME, FORGOT_PASSWORD_PREFIX } from "../constants";
@@ -15,8 +17,18 @@ import { v4 } from "uuid";
 import { RegisterInput, UsernamePasswordInput } from "../typeorm-types/input-types";
 import { UserResponse, BoolWithMessageResponse, ChangePasswordResponse } from "../typeorm-types/object-types";
 
-@Resolver()
+@Resolver(User)
 export class UserResolver {
+	@FieldResolver(() => String)
+	email(@Root() root: User, @Ctx() {req}: MyContext) {
+		if (req.session.userId === root.id) {
+			return root.email
+		}
+		else {
+			return "";
+		}
+	}
+
 	@Query(() => UserResponse)
 	async me(@Ctx() { req }: MyContext): Promise<UserResponse> {
 		if (!req.session.userId) {

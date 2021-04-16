@@ -24,6 +24,8 @@ export class PostResolver {
 		return root.text.slice(0, Math.min(100, root.text.length)) + "...";
 	}
 
+	
+
 	@Query(() => PostPagination)
 	async posts(
 		@Arg("limit", () => Int) limit: number,
@@ -31,18 +33,31 @@ export class PostResolver {
 	): Promise<PostPagination> {
 		const realLimit = Math.min(limit, 50);
 		const realLimitPlusOne = realLimit + 1;
-		const queryBuilder = getConnection()
-			.getRepository(Post)
-			.createQueryBuilder("post")
-			.orderBy('"createdAt"', "DESC")
-			.take(realLimitPlusOne);
+
+		const replacements: any[] = [realLimitPlusOne]
 		if (cursor) {
-			queryBuilder.where('"createdAt" < :cursor', {
-				cursor: new Date(parseInt(cursor)),
-			});
+			replacements.push(new Date(parseInt(cursor)));
 		}
 
-		const fetchedPosts = await queryBuilder.getMany();
+		const fetchedPosts = await getConnection().query(`
+			SELECT p.*, 
+			json_build_object(
+				'id', u.id, 
+				'username', u.username, 
+				'email', u.email,
+				'createdAt', u."createdAt",
+				'updatedAt', u."updatedAt") 
+			author 
+			FROM post p
+			INNER JOIN public.user u ON u.id = p."authorId"
+			${cursor ? `WHERE p."createdAt" < $2` : ""}
+			ORDER BY p."createdAt" DESC
+			LIMIT $1
+		`, replacements)
+
+		console.log(fetchedPosts)
+
+
 		const allFetched = (fetchedPosts.length < realLimitPlusOne);
 		
 		return {

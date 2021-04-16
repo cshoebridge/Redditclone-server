@@ -5,7 +5,7 @@ import {
 	BaseEntity,
 	CreateDateColumn,
 	UpdateDateColumn,
-	ManyToOne
+	ManyToOne,
 } from "typeorm";
 import { Field, Int, ObjectType } from "type-graphql";
 import { User } from "./User";
@@ -33,6 +33,7 @@ export class Post extends BaseEntity {
 	@Column()
 	authorId!: number;
 
+	@Field()
 	@ManyToOne(() => User, (user) => user.posts)
 	author: User;
 
