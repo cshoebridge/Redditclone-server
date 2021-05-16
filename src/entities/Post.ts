@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { Field, Int, ObjectType } from "type-graphql";
 import { User } from "./User";
+import { UpdootDirection } from "../typeorm-types/enums";
 
 @ObjectType()
 @Entity()
@@ -28,6 +29,9 @@ export class Post extends BaseEntity {
 	@Field(() => Int)
 	@Column({type:"int", default: 0})
 	points!: number;
+
+	@Field(() => UpdootDirection, { nullable: true })
+	voteStatus: UpdootDirection | null;
 
 	@Field()
 	@Column()

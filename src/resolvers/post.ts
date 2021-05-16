@@ -32,19 +32,6 @@ export class PostResolver {
 	): Promise<PostPagination> {
 		const realLimit = Math.min(limit, 50);
 		const realLimitPlusOne = realLimit + 1;
-
-		const replacements: any[] = [realLimitPlusOne, req.session.userId];
-
-		if (req.session.userId) {
-			replacements.push(req.session.userId);
-		}
-
-		let cursorIndex = 3;
-		if (cursor) {
-			replacements.push(new Date(parseInt(cursor)));
-			cursorIndex = replacements.length;
-		}
-
 		const fetchedPosts = await getConnection().query(
 			`
 			SELECT p.*, 
@@ -57,16 +44,16 @@ export class PostResolver {
 			author,
 			${
 				req.session.userId
-					? '(select value from updoot where "authorId" = $2 and "postId" = p.id) "voteStatus"'
+					? `(select value from updoot where "authorId" = ${req.session.userId} and "postId" = p.id) "voteStatus"`
 					: 'null as "voteStatus"'
 			} 
 			FROM post p
 			INNER JOIN public.user u ON u.id = p."authorId"
-			${cursor ? `WHERE p."createdAt" < $${cursorIndex}` : ""}
+			${cursor ? `WHERE p."createdAt" < ${cursor}` : ""}
 			ORDER BY p."createdAt" DESC
-			LIMIT $1
-		`,
-			replacements
+			LIMIT ${realLimitPlusOne}
+		`
+			
 		);
 
 		console.log(fetchedPosts);
@@ -81,7 +68,7 @@ export class PostResolver {
 
 	@Query(() => Post, { nullable: true })
 	post(@Arg("id") id: number): Promise<Post | undefined> {
-		return Post.findOne(id);
+		return Post.findOne(id, {relations: ['author']});
 	}
 
 	@Mutation(() => PostResponse)
