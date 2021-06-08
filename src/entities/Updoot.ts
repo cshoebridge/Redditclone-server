@@ -24,6 +24,10 @@ export class Updoot extends BaseEntity {
 	postId!: number;
 
 	@Field(() => Post)
-	@ManyToOne(() => Post)
+	@ManyToOne(
+		() => Post 
+		/*{ onDelete: "CASCADE" } 
+		alternative way to have updoots of a post be deleted along with the post*/
+	)
 	post: Post;
 }

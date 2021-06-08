@@ -16,6 +16,7 @@ import { PostInput } from "../typeorm-types/input-types";
 import { PostPagination, PostResponse } from "../typeorm-types/object-types";
 import { validatePost } from "../utils/validatePost";
 import { getConnection } from "typeorm";
+import { Updoot } from "./../entities/Updoot";
 
 @Resolver(Post)
 export class PostResolver {
@@ -53,7 +54,6 @@ export class PostResolver {
 			ORDER BY p."createdAt" DESC
 			LIMIT ${realLimitPlusOne}
 		`
-			
 		);
 
 		console.log(fetchedPosts);
@@ -68,7 +68,7 @@ export class PostResolver {
 
 	@Query(() => Post, { nullable: true })
 	post(@Arg("id") id: number): Promise<Post | undefined> {
-		return Post.findOne(id, {relations: ['author']});
+		return Post.findOne(id, { relations: ["author"] });
 	}
 
 	@Mutation(() => PostResponse)
@@ -103,12 +103,22 @@ export class PostResolver {
 	}
 
 	@Mutation(() => String)
-	async deletePost(@Arg("id") id: number): Promise<string> {
-		try {
-			await Post.delete(id);
-			return `successfully deleted post id ${id}`;
-		} catch {
-			return `failed to delete post id ${id}`;
+	@UseMiddleware(isAuth)
+	async deletePost(
+		@Arg("id", () => Int) id: number,
+		@Ctx() { req }: MyContext
+	): Promise<string> {
+		const postToDelete = await Post.findOne(id);
+		if (postToDelete?.authorId !== req.session.userId) {
+			return `fail: unauthorised to delete post id ${id}: not your post`;
+		} else {
+			try {
+				await Updoot.delete({ postId: id });
+				await Post.delete(id);
+				return `success: successfully deleted post id ${id}`;
+			} catch {
+				return `fail: failed to delete post id ${id}`;
+			}
 		}
 	}
 }
