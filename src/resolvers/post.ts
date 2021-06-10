@@ -93,13 +93,35 @@ export class PostResolver {
 		};
 	}
 
-	@Mutation(() => Post, { nullable: true })
+	@Mutation(() => PostResponse, { nullable: true })
+	@UseMiddleware(isAuth)
 	async updatePost(
 		@Arg("id") id: number,
-		@Arg("input") input: PostInput
-	): Promise<Post | undefined> {
-		await Post.update({ id }, { title: input.title, text: input.text });
-		return await Post.findOne(id);
+		@Arg("input") input: PostInput,
+		@Ctx() { req }: MyContext
+	): Promise<PostResponse> {
+		const invalidFields = validatePost({
+			text: input.text,
+			title: input.title,
+		});
+		if (invalidFields.length != 0) {
+			return { errors: invalidFields };
+		}
+
+		const result = await getConnection()
+			.createQueryBuilder()
+			.update(Post)
+			.set({ title: input.title, text: input.text })
+			.where('id = :id and "authorId" = :aid', {
+				id: id,
+				aid: req.session.userId,
+			})
+			.returning("*")
+			.execute();
+		
+		return {
+			post: result.raw[0],
+		};
 	}
 
 	@Mutation(() => String)
