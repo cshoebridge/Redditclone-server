@@ -56,8 +56,6 @@ export class PostResolver {
 		`
 		);
 
-		console.log(fetchedPosts);
-
 		const allFetched = fetchedPosts.length < realLimitPlusOne;
 
 		return {
@@ -67,8 +65,31 @@ export class PostResolver {
 	}
 
 	@Query(() => Post, { nullable: true })
-	post(@Arg("id") id: number): Promise<Post | undefined> {
-		return Post.findOne(id, { relations: ["author"] });
+	async post(
+		@Arg("id") id: number,
+		@Ctx() { req }: MyContext
+	): Promise<Post | undefined> {
+		const post = await getConnection().query(
+			`SELECT p.*,
+			json_build_object(
+				'id', u.id, 
+				'username', u.username, 
+				'email', u.email,
+				'createdAt', u."createdAt",
+				'updatedAt', u."updatedAt") 
+			author,
+			${
+				req.session.userId
+					? `(SELECT value FROM updoot WHERE "authorId" = ${req.session.userId} AND "postId" = p.id) "voteStatus"`
+					: 'null as "voteStatus"'
+			} 
+			FROM post p
+			INNER JOIN public.user u on u.id = p."authorId"
+			WHERE p.id = ${id}
+			`
+		);
+		return post[0];
+		//return Post.findOne(id, { relations: ["author"] });
 	}
 
 	@Mutation(() => PostResponse)
@@ -118,7 +139,7 @@ export class PostResolver {
 			})
 			.returning("*")
 			.execute();
-		
+
 		return {
 			post: result.raw[0],
 		};
