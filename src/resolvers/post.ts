@@ -17,6 +17,8 @@ import { PostPagination, PostResponse } from "../typeorm-types/object-types";
 import { validatePost } from "../utils/validatePost";
 import { getConnection } from "typeorm";
 import { Updoot } from "./../entities/Updoot";
+import { User } from "../entities/User";
+import { UpdootDirection } from "../typeorm-types/enums";
 
 @Resolver(Post)
 export class PostResolver {
@@ -25,31 +27,39 @@ export class PostResolver {
 		return root.text.slice(0, Math.min(100, root.text.length)) + "...";
 	}
 
+	@FieldResolver(() => User)
+	async author(@Root() root: Post, @Ctx() { userLoader }: MyContext) {
+		return await userLoader.load(root.authorId);
+	}
+
+	@FieldResolver(() => UpdootDirection)
+	async voteStatus(
+		@Root() root: Post,
+		@Ctx() { req, updootLoader }: MyContext
+	) {
+		if (!req.session.userId) {
+			return null;
+		}
+
+		const updoot = await updootLoader.load({
+			postId: root.id,
+			authorId: req.session.userId,
+		});
+
+		return updoot ? updoot.value : null;
+	}
+
 	@Query(() => PostPagination)
 	async posts(
 		@Arg("limit", () => Int) limit: number,
-		@Arg("cursor", () => String, { nullable: true }) cursor: string,
-		@Ctx() { req }: MyContext
+		@Arg("cursor", () => String, { nullable: true }) cursor: string
 	): Promise<PostPagination> {
 		const realLimit = Math.min(limit, 50);
 		const realLimitPlusOne = realLimit + 1;
 		const fetchedPosts = await getConnection().query(
 			`
-			SELECT p.*, 
-			json_build_object(
-				'id', u.id, 
-				'username', u.username, 
-				'email', u.email,
-				'createdAt', u."createdAt",
-				'updatedAt', u."updatedAt") 
-			author,
-			${
-				req.session.userId
-					? `(select value from updoot where "authorId" = ${req.session.userId} and "postId" = p.id) "voteStatus"`
-					: 'null as "voteStatus"'
-			} 
+			SELECT p.*
 			FROM post p
-			INNER JOIN public.user u ON u.id = p."authorId"
 			${cursor ? `WHERE p."createdAt" < TO_TIMESTAMP(${cursor})` : ""}
 			ORDER BY p."createdAt" DESC
 			LIMIT ${realLimitPlusOne}
@@ -65,31 +75,8 @@ export class PostResolver {
 	}
 
 	@Query(() => Post, { nullable: true })
-	async post(
-		@Arg("id") id: number,
-		@Ctx() { req }: MyContext
-	): Promise<Post | undefined> {
-		const post = await getConnection().query(
-			`SELECT p.*,
-			json_build_object(
-				'id', u.id, 
-				'username', u.username, 
-				'email', u.email,
-				'createdAt', u."createdAt",
-				'updatedAt', u."updatedAt") 
-			author,
-			${
-				req.session.userId
-					? `(SELECT value FROM updoot WHERE "authorId" = ${req.session.userId} AND "postId" = p.id) "voteStatus"`
-					: 'null as "voteStatus"'
-			} 
-			FROM post p
-			INNER JOIN public.user u on u.id = p."authorId"
-			WHERE p.id = ${id}
-			`
-		);
-		return post[0];
-		//return Post.findOne(id, { relations: ["author"] });
+	async post(@Arg("id") id: number): Promise<Post | undefined> {
+		return Post.findOne(id);
 	}
 
 	@Mutation(() => PostResponse)

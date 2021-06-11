@@ -14,21 +14,23 @@ import { User } from "./entities/User";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import { MyContext } from "./types";
-import path from "path"
+import path from "path";
 import { Updoot } from "./entities/Updoot";
 import { UpdootResolver } from "./resolvers/updoot";
+import { createUserLoader } from "./utils/UserLoader";
+import { createUpdootLoader } from "./utils/UpdootLoader";
 
 const main = async () => {
 	const conn = await createConnection({
-		type: 'postgres',
-		database: 'redditclone',
-		username: 'postgres',
-		password: 'DivineHD1',
+		type: "postgres",
+		database: "redditclone",
+		username: "postgres",
+		password: "DivineHD1",
 		logging: true,
 		synchronize: !__prod__,
 		migrations: [path.join(__dirname, "./migrations/*")],
-		entities: [Post, User, Updoot]
-	})
+		entities: [Post, User, Updoot],
+	});
 	conn.runMigrations();
 
 	const mailer = await createMailerClient();
@@ -67,7 +69,14 @@ const main = async () => {
 			resolvers: [PostResolver, UserResolver, UpdootResolver],
 			validate: false,
 		}),
-		context: ({ req, res }): MyContext => ({ req, res, mailer, redisClient }),
+		context: ({ req, res }): MyContext => ({
+			req,
+			res,
+			mailer,
+			redisClient,
+			userLoader: createUserLoader(),
+			updootLoader: createUpdootLoader()
+		}),
 	});
 
 	apolloServer.applyMiddleware({ app, cors: false });
