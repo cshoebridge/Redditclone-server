@@ -17,7 +17,7 @@ export class UpdootResolver {
 		@Ctx() { req }: MyContext
 	): Promise<BoolWithMessageResponse> {
 		const { userId: authorId } = req.session;
-
+	
 		const updoot = await Updoot.findOne({
 			where: { postId, authorId: authorId },
 		});

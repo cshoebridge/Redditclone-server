@@ -50,7 +50,7 @@ export class PostResolver {
 			} 
 			FROM post p
 			INNER JOIN public.user u ON u.id = p."authorId"
-			${cursor ? `WHERE p."createdAt" < ${cursor}` : ""}
+			${cursor ? `WHERE p."createdAt" < TO_TIMESTAMP(${cursor})` : ""}
 			ORDER BY p."createdAt" DESC
 			LIMIT ${realLimitPlusOne}
 		`
